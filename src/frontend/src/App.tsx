@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { LanguageProvider, useLanguage } from "./contexts/LanguageContext";
 import { useActor } from "./hooks/useActor";
 import { useInternetIdentity } from "./hooks/useInternetIdentity";
@@ -162,7 +163,7 @@ function CRMLayout() {
   const { t, lang, setLang } = useLanguage();
   const { login, clear, loginStatus, identity, isInitializing } =
     useInternetIdentity();
-  const { isFetching } = useActor();
+  const { actor } = useActor();
 
   const isAuthenticated = !!identity;
   const isLoggingIn = loginStatus === "logging-in";
@@ -208,60 +209,11 @@ function CRMLayout() {
     );
   }
 
-  if (!isAuthenticated) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-8 max-w-sm w-full p-8">
-          <div className="flex flex-col items-center gap-3">
-            <div className="w-16 h-16 rounded-2xl bg-primary flex items-center justify-center">
-              <Building2 className="w-8 h-8 text-primary-foreground" />
-            </div>
-            <h1 className="text-2xl font-bold text-foreground">
-              {t("app_name")}
-            </h1>
-            <p className="text-muted-foreground text-sm text-center">
-              {t("app_subtitle")}
-            </p>
-          </div>
-          <div className="w-full bg-card rounded-xl border border-border p-6 shadow-card flex flex-col gap-4">
-            <p className="text-sm text-muted-foreground text-center">
-              {t("login_desc")}
-            </p>
-            <Button
-              data-ocid="auth.primary_button"
-              className="w-full"
-              onClick={() => login()}
-              disabled={isLoggingIn}
-            >
-              {isLoggingIn ? (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              ) : (
-                <LogIn className="w-4 h-4 mr-2" />
-              )}
-              {t("login")}
-            </Button>
-          </div>
-          <p className="text-xs text-muted-foreground text-center">
-            © {new Date().getFullYear()} · Built with love using{" "}
-            <a
-              href={`https://caffeine.ai?utm_source=caffeine-footer&utm_medium=referral&utm_content=${encodeURIComponent(window.location.hostname)}`}
-              className="underline"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              caffeine.ai
-            </a>
-          </p>
-        </div>
-      </div>
-    );
-  }
-
   const principal = identity?.getPrincipal().toString() ?? "";
   const initials = principal.slice(0, 2).toUpperCase();
 
   const renderPage = () => {
-    if (isFetching) {
+    if (!actor) {
       return (
         <div
           className="flex h-full items-center justify-center"
@@ -358,36 +310,59 @@ function CRMLayout() {
               {lang === "en" ? "EN → ΕΛ" : "ΕΛ → EN"}
             </button>
           </div>
-          {/* User + logout */}
-          <div className="flex items-center gap-2 px-2 py-1.5">
-            <Avatar className="w-7 h-7">
-              <AvatarFallback className="bg-primary text-white text-xs">
-                {initials}
-              </AvatarFallback>
-            </Avatar>
-            <span
-              className="text-xs flex-1 truncate"
-              style={{ color: "oklch(var(--sidebar-foreground) / 0.6)" }}
-            >
-              {principal.slice(0, 12)}…
-            </span>
+
+          {/* Auth section */}
+          {isAuthenticated ? (
+            /* Authenticated: show avatar + principal + logout */
+            <div className="flex items-center gap-2 px-2 py-1.5">
+              <Avatar className="w-7 h-7">
+                <AvatarFallback className="bg-primary text-white text-xs">
+                  {initials}
+                </AvatarFallback>
+              </Avatar>
+              <span
+                className="text-xs flex-1 truncate"
+                style={{ color: "oklch(var(--sidebar-foreground) / 0.6)" }}
+              >
+                {principal.slice(0, 12)}…
+              </span>
+              <button
+                type="button"
+                data-ocid="auth.logout.button"
+                onClick={() => clear()}
+                title={t("logout")}
+                className="hover:text-destructive transition-colors"
+                style={{ color: "oklch(var(--sidebar-foreground) / 0.4)" }}
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+            </div>
+          ) : (
+            /* Not authenticated: Demo Account button */
             <button
               type="button"
-              data-ocid="auth.logout.button"
-              onClick={() => clear()}
-              title={t("logout")}
-              className="hover:text-destructive transition-colors"
-              style={{ color: "oklch(var(--sidebar-foreground) / 0.4)" }}
+              data-ocid="auth.demo.button"
+              onClick={() => login()}
+              disabled={isLoggingIn}
+              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs transition-colors hover:bg-sidebar-accent/60 disabled:opacity-50"
+              style={{ color: "oklch(var(--sidebar-foreground) / 0.55)" }}
             >
-              <LogOut className="w-4 h-4" />
+              {isLoggingIn ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin flex-shrink-0" />
+              ) : (
+                <LogIn className="w-3.5 h-3.5 flex-shrink-0" />
+              )}
+              Demo Account
             </button>
-          </div>
+          )}
         </div>
       </aside>
 
       {/* Main */}
       <main className="flex-1 overflow-y-auto">
-        {renderPage()}
+        <ErrorBoundary onGoHome={() => setPage("dashboard")}>
+          {renderPage()}
+        </ErrorBoundary>
         <SeedData />
       </main>
     </div>

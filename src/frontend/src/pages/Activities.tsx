@@ -45,14 +45,14 @@ import {
   useMarkActivityDone,
 } from "../hooks/useQueries";
 
-const activityTypeIcon: Record<ActivityType, React.ReactNode> = {
+const activityTypeIcon: Record<string, React.ReactNode> = {
   [ActivityType.call]: <Phone className="w-4 h-4" />,
   [ActivityType.email]: <Mail className="w-4 h-4" />,
   [ActivityType.meeting]: <Video className="w-4 h-4" />,
   [ActivityType.task]: <CheckSquare className="w-4 h-4" />,
 };
 
-const activityTypeColors: Record<ActivityType, string> = {
+const activityTypeColors: Record<string, string> = {
   [ActivityType.call]: "bg-blue-100 text-blue-600",
   [ActivityType.email]: "bg-purple-100 text-purple-600",
   [ActivityType.meeting]: "bg-amber-100 text-amber-600",
@@ -136,8 +136,16 @@ export default function Activities() {
     }
   };
 
-  const getContactName = (id?: bigint) =>
-    id ? (contacts?.find((c) => c.id === id)?.name ?? "") : "";
+  const getContactName = (id?: bigint | null) => {
+    if (id == null) return "";
+    return contacts?.find((c) => c.id === id)?.name ?? "";
+  };
+
+  const getIconColor = (type: string) =>
+    activityTypeColors[type] ?? "bg-gray-100 text-gray-600";
+
+  const getIcon = (type: string) =>
+    activityTypeIcon[type] ?? <CheckSquare className="w-4 h-4" />;
 
   return (
     <div className="p-6 space-y-5" data-ocid="activities.page">
@@ -192,78 +200,80 @@ export default function Activities() {
         </div>
       ) : (
         <div className="space-y-2">
-          {filtered.map((act, idx) => (
-            <div
-              key={act.id.toString()}
-              data-ocid={`activities.item.${idx + 1}`}
-              className="bg-card rounded-xl border border-border shadow-xs p-4 flex items-start gap-4"
-            >
+          {filtered.map((act, idx) => {
+            const contactId = act.contactId ?? null;
+            const hasContact = contactId != null;
+            return (
               <div
-                className={`flex-shrink-0 w-9 h-9 rounded-lg flex items-center justify-center ${activityTypeColors[act.activityType]}`}
+                key={String(act.id)}
+                data-ocid={`activities.item.${idx + 1}`}
+                className="bg-card rounded-xl border border-border shadow-xs p-4 flex items-start gap-4"
               >
-                {activityTypeIcon[act.activityType]}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <p className="font-medium text-sm">{act.title}</p>
-                    {act.description && (
-                      <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
-                        {act.description}
-                      </p>
-                    )}
-                  </div>
-                  <Badge
-                    variant={
-                      act.status === ActivityStatus.done
-                        ? "secondary"
-                        : "outline"
-                    }
-                    className="flex-shrink-0 text-xs"
-                  >
-                    {act.status === ActivityStatus.done
-                      ? t("status_done")
-                      : t("status_pending")}
-                  </Badge>
+                <div
+                  className={`flex-shrink-0 w-9 h-9 rounded-lg flex items-center justify-center ${getIconColor(act.activityType)}`}
+                >
+                  {getIcon(act.activityType)}
                 </div>
-                <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
-                  <span className="flex items-center gap-1">
-                    <Calendar className="w-3 h-3" />
-                    {act.dueDate}
-                  </span>
-                  {act.contactId && (
-                    <span>{getContactName(act.contactId)}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="font-medium text-sm">{act.title}</p>
+                      {act.description && (
+                        <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+                          {act.description}
+                        </p>
+                      )}
+                    </div>
+                    <Badge
+                      variant={
+                        act.status === ActivityStatus.done
+                          ? "secondary"
+                          : "outline"
+                      }
+                      className="flex-shrink-0 text-xs"
+                    >
+                      {act.status === ActivityStatus.done
+                        ? t("status_done")
+                        : t("status_pending")}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
+                    <span className="flex items-center gap-1">
+                      <Calendar className="w-3 h-3" />
+                      {act.dueDate}
+                    </span>
+                    {hasContact && <span>{getContactName(contactId)}</span>}
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  {act.status === ActivityStatus.pending && (
+                    <Button
+                      data-ocid={`activities.mark_done.button.${idx + 1}`}
+                      variant="ghost"
+                      size="sm"
+                      className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+                      onClick={() => handleMarkDone(act.id)}
+                      disabled={markDone.isPending}
+                    >
+                      <CheckCircle2 className="w-4 h-4" />
+                    </Button>
+                  )}
+                  {isAdmin && (
+                    <Button
+                      data-ocid={`activities.delete_button.${idx + 1}`}
+                      variant="ghost"
+                      size="sm"
+                      className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                      onClick={() => handleDelete(act.id)}
+                      disabled={deleteActivity.isPending}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
                   )}
                 </div>
               </div>
-              <div className="flex items-center gap-1 flex-shrink-0">
-                {act.status === ActivityStatus.pending && (
-                  <Button
-                    data-ocid={`activities.mark_done.button.${idx + 1}`}
-                    variant="ghost"
-                    size="sm"
-                    className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
-                    onClick={() => handleMarkDone(act.id)}
-                    disabled={markDone.isPending}
-                  >
-                    <CheckCircle2 className="w-4 h-4" />
-                  </Button>
-                )}
-                {isAdmin && (
-                  <Button
-                    data-ocid={`activities.delete_button.${idx + 1}`}
-                    variant="ghost"
-                    size="sm"
-                    className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                    onClick={() => handleDelete(act.id)}
-                    disabled={deleteActivity.isPending}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                )}
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -319,16 +329,18 @@ export default function Activities() {
               <div className="space-y-1.5">
                 <Label>{t("activity_contact")}</Label>
                 <Select
-                  value={form.contactId}
-                  onValueChange={(v) => setForm({ ...form, contactId: v })}
+                  value={form.contactId || "none"}
+                  onValueChange={(v) =>
+                    setForm({ ...form, contactId: v === "none" ? "" : v })
+                  }
                 >
                   <SelectTrigger data-ocid="activities.contact.select">
                     <SelectValue placeholder={t("none")} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">{t("none")}</SelectItem>
+                    <SelectItem value="none">{t("none")}</SelectItem>
                     {(contacts ?? []).map((c) => (
-                      <SelectItem key={c.id.toString()} value={c.id.toString()}>
+                      <SelectItem key={String(c.id)} value={String(c.id)}>
                         {c.name}
                       </SelectItem>
                     ))}
@@ -338,16 +350,18 @@ export default function Activities() {
               <div className="space-y-1.5">
                 <Label>{t("activity_deal")}</Label>
                 <Select
-                  value={form.dealId}
-                  onValueChange={(v) => setForm({ ...form, dealId: v })}
+                  value={form.dealId || "none"}
+                  onValueChange={(v) =>
+                    setForm({ ...form, dealId: v === "none" ? "" : v })
+                  }
                 >
                   <SelectTrigger data-ocid="activities.deal.select">
                     <SelectValue placeholder={t("none")} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">{t("none")}</SelectItem>
+                    <SelectItem value="none">{t("none")}</SelectItem>
                     {(deals ?? []).map((d) => (
-                      <SelectItem key={d.id.toString()} value={d.id.toString()}>
+                      <SelectItem key={String(d.id)} value={String(d.id)}>
                         {d.title}
                       </SelectItem>
                     ))}
